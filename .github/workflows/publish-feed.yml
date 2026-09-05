@@ -72,7 +72,7 @@ jobs:
           make_fake_ipk /tmp/fakefeed/x86_64/base  hello-test     1.0.0 x86_64 "测试包:验证自建软件源链路"
           make_fake_ipk /tmp/fakefeed/x86_64/base  demo-tool      1.0.1 x86_64 "测试包:演示多包索引"
           make_fake_ipk /tmp/fakefeed/x86_64/luci  luci-app-demo  1.0.0 x86_64 "测试包:LuCI界面示例"
-          echo "样本就绪:" && find fakefeed -name "*.ipk"
+          echo "样本就绪:" && find /tmp/fakefeed -name "*.ipk"
 
       - name: 整理发布结构并生成索引(sample)
         if: github.event.inputs.MODE != 'real'
