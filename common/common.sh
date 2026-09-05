@@ -1323,6 +1323,7 @@ fi
 
 if [[ `grep -c "CONFIG_PACKAGE_luci-theme-argon=y" ${HOME_PATH}/.config` -eq '1' ]]; then
   pmg="$(echo "$(date +%M)" | sed 's/^.//g')"
+  [[ "${pmg}" == "0" ]] && pmg="1"   # 修复:仓库只有 1-9.jpg 没有 0.jpg,pmg=0 时回退到 1(主仓库原版有 1/10 概率随机失败)
   mkdir -p ${HOME_PATH}/files/www/luci-static/argon/background
   curl -fsSL https://raw.githubusercontent.com/shidahuilang/openwrt-package/usb/argon/jpg/${pmg}.jpg -o ${HOME_PATH}/files/www/luci-static/argon/background/argon.jpg
   if [[ $? -ne 0 ]]; then
