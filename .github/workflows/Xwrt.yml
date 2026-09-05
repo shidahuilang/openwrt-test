@@ -213,18 +213,18 @@ jobs:
         cd openwrt
         source ${BUILD_PATH}/common.sh && Diy_xinxi
     
-    - name: 清理Actions空间
+    - name: 清理Actions空间(测试期禁用,防误删并行run)
       continue-on-error: true
-      if: env.REPO_TOKEN
+      if: false
       uses: Mattraks/delete-workflow-runs@v2
       with:
         token: ${{ secrets.REPO_TOKEN }}
         repository: ${{ github.repository }}
         retain_min: ${{ env.RETAIN_MINUTE }}
     
-    - name: 清理releases
+    - name: 清理releases(测试期禁用,action为漂浮引用)
       continue-on-error: true
-      if: env.REPO_TOKEN
+      if: false
       uses: ophub/delete-releases-workflows@main
       with:
         delete_releases: true
