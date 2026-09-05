@@ -13,6 +13,10 @@ ARCH="${3:?用法: build-feed.sh <openwrt目录> <输出目录> <架构>}"
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 
 PKG_BASE="$SRC/bin/packages/$ARCH"
+# 兼容模式:输入目录本身已是 <架构>/<feed名> 结构(如 sample 测试样本),直接使用
+if [ ! -d "$PKG_BASE" ] && [ -d "$SRC/$ARCH" ]; then
+    PKG_BASE="$SRC/$ARCH"
+fi
 TARGET_DIR=$(ls -d "$SRC/bin/targets"/*/ 2>/dev/null | head -1 || true)
 
 if [ ! -d "$PKG_BASE" ]; then
