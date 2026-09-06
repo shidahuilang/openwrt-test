@@ -1,4 +1,4 @@
-// 在线固件生成器 - 前端逻辑
+// 在线固件生成器 - 前端逻辑 v2
 // 纯前端 + GitHub API,无服务器
 
 const REPO = 'shidahuilang/openwrt-test';
@@ -13,13 +13,100 @@ let searchKeyword = '';
 let token = localStorage.getItem('gh_token') || '';
 let currentRunId = null;
 let pollTimer = null;
+let deviceList = [];
+let selectedProfile = 'generic';
 
-// 分类映射(从包名推断)
+// 常用插件清单(参考 openwrt.ai)
+const POPULAR_PACKAGES = [
+  ['luci-app-accesscontrol-plus','访问控制'],
+  ['luci-app-acme','HTTPS证书申请'],
+  ['luci-app-adguardhome','ADG去广告'],
+  ['luci-app-aliyundrive-webdav','阿里云盘WebDAV'],
+  ['luci-app-ap-modem','访问AP/光猫'],
+  ['luci-app-aria2','Aria2下载工具'],
+  ['luci-app-arpbind','ARP绑定'],
+  ['luci-app-bandix','流量监控限速'],
+  ['luci-app-cifs-mount','共享盘挂载'],
+  ['luci-app-clouddrive2','多云盘管理工具'],
+  ['luci-app-cloudreve','多存储网盘'],
+  ['luci-app-cupsd','CUPS打印服务'],
+  ['luci-app-ddns','动态域名解析'],
+  ['luci-app-ddns-go','动态域名解析'],
+  ['luci-app-ddnsto','内网穿透'],
+  ['luci-app-diskman','磁盘管理'],
+  ['luci-app-dufs','WebDAV文件管理'],
+  ['luci-app-easymesh','Mesh组网'],
+  ['luci-app-easytier','异地组网'],
+  ['luci-app-eqosplus','IP限速'],
+  ['luci-app-filebrowser-q','文件网盘管理'],
+  ['luci-app-frpc','内网穿透'],
+  ['luci-app-guest-wifi','访客WIFI'],
+  ['luci-app-hd-idle','硬盘休眠'],
+  ['luci-app-homeassistant','智能家居'],
+  ['luci-app-iptvhelper','IPTV助手'],
+  ['luci-app-kodexplorer','可道云网盘'],
+  ['luci-app-ksmbd','内核级文件共享'],
+  ['luci-app-linkease','易有云文件管理'],
+  ['luci-app-lucky','Lucy多功能网络工具'],
+  ['luci-app-minidlna','DLNA媒体服务'],
+  ['luci-app-mosdns','DNS转发'],
+  ['luci-app-mwan3-nft','负载均衡'],
+  ['luci-app-natmap','内网穿透'],
+  ['luci-app-nft-timecontrol','上网时间控制'],
+  ['luci-app-netdata','性能监测'],
+  ['luci-app-fastnet','网络体检/测速'],
+  ['luci-app-nlbwmon','流量统计'],
+  ['luci-app-oaf','应用过滤'],
+  ['luci-app-openlist2','原alist多存储文件列表'],
+  ['luci-app-p910nd','USB打印机'],
+  ['luci-app-parentcontrol','家长控制'],
+  ['luci-app-partexp','分区扩容'],
+  ['luci-app-qbittorrent','BT下载工具'],
+  ['luci-app-quickfile','文件管理器'],
+  ['luci-app-rclone','云盘挂载同步'],
+  ['luci-app-samba4','samba文件共享'],
+  ['luci-app-smartdns','SmartDNS'],
+  ['luci-app-socat','端口转发'],
+  ['luci-app-softethervpn','SoftEther VPN'],
+  ['luci-app-statistics','系统监控统计'],
+  ['luci-app-store','iStore应用商店'],
+  ['luci-app-subconverter','订阅转换'],
+  ['luci-app-syncdial','多拨'],
+  ['luci-app-tailscale-community','Tailscale虚拟组网'],
+  ['luci-app-taskplan','定时/开机任务'],
+  ['luci-app-thunder','迅雷下载'],
+  ['luci-app-timedreboot','定时重启'],
+  ['luci-app-timewol','网络唤醒'],
+  ['luci-app-transmission','BT下载'],
+  ['luci-app-ttyd','网页版命令行'],
+  ['luci-app-turboacc','网络加速'],
+  ['luci-app-unblockneteasemusic','解锁网易云'],
+  ['luci-app-unishare','多种文件共享'],
+  ['luci-app-vlmcsd','KMS服务器'],
+  ['luci-app-vsftpd','FTP服务器'],
+  ['luci-app-watchcat','断网检测重启'],
+  ['luci-app-webdav','WebDAV服务'],
+  ['luci-app-wechatpush','通知推送'],
+  ['luci-app-wireguard','WireGuard VPN'],
+  ['luci-app-wrtbwmon','流量监控'],
+  ['luci-app-zerotier','ZeroTier内网穿透'],
+  ['luci-theme-argon','Argon主题'],
+  ['luci-theme-kucat','KuCat主题'],
+  ['luci-theme-alpha','Alpha主题'],
+  ['luci-theme-aurora','Aurora主题'],
+  ['automount','自动挂载USB/硬盘'],
+  ['btop','性能监控'],
+  ['open-vm-tools','VMware工具'],
+  ['qemu-ga','QEMU来宾代理'],
+];
+
+// 分类映射
 const CATEGORIES = {
   'luci-app-': 'LuCI 界面',
   'kmod-': '内核模块',
   'luci-proto-': '协议支持',
   'luci-i18n-': '语言包',
+  'luci-theme-': '主题',
 };
 
 // 初始化
@@ -27,11 +114,16 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('token').value = token;
   loadArchitectures();
   loadPackages('x86_64');
+  loadDevices('x86_64');
+  renderPopularPackages();
   bindEvents();
 });
 
 function bindEvents() {
-  document.getElementById('arch').addEventListener('change', (e) => loadPackages(e.target.value));
+  document.getElementById('arch').addEventListener('change', (e) => {
+    loadPackages(e.target.value);
+    loadDevices(e.target.value);
+  });
   document.getElementById('token').addEventListener('change', (e) => {
     token = e.target.value.trim();
     localStorage.setItem('gh_token', token);
@@ -40,20 +132,77 @@ function bindEvents() {
     searchKeyword = e.target.value.toLowerCase();
     renderPackages();
   });
-  document.querySelectorAll('.chip').forEach(c => {
+  document.querySelectorAll('.chip[data-cat]').forEach(c => {
     c.addEventListener('click', () => {
-      document.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('.chip[data-cat]').forEach(x => x.classList.remove('active'));
       c.classList.add('active');
       currentFilter = c.dataset.cat;
       renderPackages();
     });
   });
   document.getElementById('buildBtn').addEventListener('click', triggerBuild);
+
+  // 设备搜索
+  const ds = document.getElementById('deviceSearch');
+  ds.addEventListener('input', () => renderDeviceDropdown(ds.value));
+  ds.addEventListener('focus', () => renderDeviceDropdown(ds.value));
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.device-search')) {
+      document.getElementById('deviceDropdown').classList.remove('show');
+    }
+  });
 }
 
-// 加载架构列表
+// ========== 设备列表 ==========
+async function loadDevices(arch) {
+  deviceList = [];
+  try {
+    const res = await fetch(`${FEED_URL}/devices.json`);
+    if (res.ok) {
+      const data = await res.json();
+      deviceList = data.profiles || [];
+      console.log(`加载 ${deviceList.length} 个设备`);
+    }
+  } catch (e) { /* 设备列表暂未生成 */ }
+  document.getElementById('deviceSearch').value = 'Generic';
+  selectedProfile = 'generic';
+}
+
+function renderDeviceDropdown(keyword) {
+  const dd = document.getElementById('deviceDropdown');
+  const kw = keyword.toLowerCase().trim();
+  if (!kw) {
+    dd.classList.remove('show');
+    return;
+  }
+  let filtered = deviceList.filter(d =>
+    d.profile.toLowerCase().includes(kw) || (d.desc || '').toLowerCase().includes(kw)
+  ).slice(0, 30);
+
+  // 如果没有动态列表,加一个 generic fallback
+  if (filtered.length === 0 && deviceList.length === 0) {
+    filtered = [{ profile: 'generic', desc: '通用设备(x86)' }];
+  }
+
+  dd.innerHTML = filtered.map(d =>
+    `<div class="device-option" data-profile="${d.profile}" data-desc="${escape(d.desc || '')}">
+      <span class="profile">${d.profile}</span>
+      <span class="desc">${escape(d.desc || '')}</span>
+    </div>`
+  ).join('');
+
+  dd.classList.add('show');
+  dd.querySelectorAll('.device-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      selectedProfile = opt.dataset.profile;
+      document.getElementById('deviceSearch').value = `${opt.dataset.profile} (${opt.dataset.desc})`;
+      dd.classList.remove('show');
+    });
+  });
+}
+
+// ========== 架构列表 ==========
 async function loadArchitectures() {
-  // 从 Releases 检测可用架构
   try {
     const res = await fetch(`${API}/repos/${REPO}/releases?per_page=50`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {}
@@ -67,28 +216,47 @@ async function loadArchitectures() {
       });
     });
     const sel = document.getElementById('arch');
-    if (archs.size === 0) {
-      sel.innerHTML = '<option value="x86_64">x86_64</option><option value="aarch64_generic">aarch64_generic</option>';
-    } else {
+    if (archs.size > 0) {
       sel.innerHTML = [...archs].map(a => `<option value="${a}">${a}</option>`).join('');
     }
-  } catch (e) {
-    console.warn('架构加载失败,使用默认');
-  }
+  } catch (e) { /* 使用默认 */ }
 }
 
-// 加载插件清单
+// ========== 常用插件 ==========
+function renderPopularPackages() {
+  const grid = document.getElementById('popularGrid');
+  grid.innerHTML = POPULAR_PACKAGES.map(([pkg, desc]) =>
+    `<div class="popular-item" data-pkg="${pkg}" data-desc="${escape(desc)}">
+      <span class="check">✓</span>
+      <span class="pkg">${pkg}</span>
+      <span class="desc">${escape(desc)}</span>
+    </div>`
+  ).join('');
+  grid.querySelectorAll('.popular-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const pkg = item.dataset.pkg;
+      if (selectedPackages.has(pkg)) {
+        selectedPackages.delete(pkg);
+        item.classList.remove('selected');
+      } else {
+        selectedPackages.add(pkg);
+        item.classList.add('selected');
+      }
+      updateSelectedInfo();
+      // 同步搜索列表中的勾选状态
+      const cb = document.querySelector(`#packageList input[value="${pkg}"]`);
+      if (cb) cb.checked = selectedPackages.has(pkg);
+    });
+  });
+}
+
+// ========== 全量插件列表 ==========
 async function loadPackages(arch) {
   const list = document.getElementById('packageList');
   list.innerHTML = '<div class="empty">正在加载插件清单...</div>';
   allPackages = [];
-  selectedPackages.clear();
-  updateSelectedInfo();
-
-  // 从 gh-pages 软件源读 Packages 索引
   const sources = ['base', 'luci', 'packages', 'routing'];
   const pkgs = [];
-
   for (const src of sources) {
     try {
       const url = `${FEED_URL}/${arch}/${src}/Packages`;
@@ -96,31 +264,30 @@ async function loadPackages(arch) {
       if (!res.ok) continue;
       const text = await res.text();
       parsePackagesIndex(text, src, pkgs);
-    } catch (e) { /* 源不存在,跳过 */ }
+    } catch (e) {}
   }
-
-  // 去重(同名包取第一个)
   const seen = new Set();
   allPackages = pkgs.filter(p => {
     if (seen.has(p.name)) return false;
     seen.add(p.name);
     return true;
   });
-
-  // 按名称排序
   allPackages.sort((a, b) => a.name.localeCompare(b.name));
-
   if (allPackages.length === 0) {
     list.innerHTML = '<div class="empty">暂无可用插件。请先完成编译并发布软件源。</div>';
   } else {
     renderPackages();
+    // 同步常用插件的选中状态
+    document.querySelectorAll('.popular-item').forEach(item => {
+      if (selectedPackages.has(item.dataset.pkg)) {
+        item.classList.add('selected');
+      }
+    });
   }
 }
 
-// 解析 Packages 索引
 function parsePackagesIndex(text, source, out) {
-  const blocks = text.split('\n\n');
-  for (const block of blocks) {
+  for (const block of text.split('\n\n')) {
     const pkg = {};
     for (const line of block.split('\n')) {
       const idx = line.indexOf(':');
@@ -130,7 +297,6 @@ function parsePackagesIndex(text, source, out) {
       if (key === 'Package') pkg.name = val;
       else if (key === 'Description') pkg.desc = val.split(/\n/)[0];
       else if (key === 'Size') pkg.size = parseInt(val);
-      else if (key === 'Depends') pkg.depends = val;
     }
     if (pkg.name) {
       pkg.source = source;
@@ -154,11 +320,9 @@ function formatSize(bytes) {
   return (bytes / 1048576).toFixed(1) + 'MB';
 }
 
-// 渲染插件列表
 function renderPackages() {
   const list = document.getElementById('packageList');
   let filtered = allPackages;
-
   if (currentFilter !== 'all') {
     filtered = filtered.filter(p => p.category === currentFilter);
   }
@@ -168,12 +332,10 @@ function renderPackages() {
       (p.desc && p.desc.toLowerCase().includes(searchKeyword))
     );
   }
-
   if (filtered.length === 0) {
     list.innerHTML = '<div class="empty">没有匹配的插件</div>';
     return;
   }
-
   list.innerHTML = filtered.map(p => `
     <label class="package-item">
       <input type="checkbox" value="${p.name}" ${selectedPackages.has(p.name) ? 'checked' : ''} data-size="${p.size || 0}">
@@ -184,16 +346,19 @@ function renderPackages() {
       <div class="pkg-size">${formatSize(p.size)}</div>
     </label>
   `).join('');
-
-  // 绑定勾选事件
   list.querySelectorAll('input[type="checkbox"]').forEach(cb => {
     cb.addEventListener('change', () => {
       const name = cb.value;
       const size = parseInt(cb.dataset.size) || 0;
       if (cb.checked) {
         selectedPackages.set(name, size);
+        // 同步常用插件
+        const pop = document.querySelector(`.popular-item[data-pkg="${name}"]`);
+        if (pop) pop.classList.add('selected');
       } else {
         selectedPackages.delete(name);
+        const pop = document.querySelector(`.popular-item[data-pkg="${name}"]`);
+        if (pop) pop.classList.remove('selected');
       }
       updateSelectedInfo();
     });
@@ -202,68 +367,65 @@ function renderPackages() {
 
 function escape(s) {
   const d = document.createElement('div');
-  d.textContent = s;
+  d.textContent = s || '';
   return d.innerHTML;
 }
 
 function updateSelectedInfo() {
-  const count = selectedPackages.size;
+  document.getElementById('selCount').textContent = selectedPackages.size;
   let totalSize = 0;
   selectedPackages.forEach(s => totalSize += s);
-  document.getElementById('selCount').textContent = count;
   document.getElementById('selSize').textContent = formatSize(totalSize);
-  document.getElementById('buildBtn').disabled = count === 0;
+  document.getElementById('buildBtn').disabled = selectedPackages.size === 0;
 }
 
-// 触发构建
+// ========== 触发构建 ==========
 async function triggerBuild() {
-  if (!token) {
-    alert('请先输入 GitHub Token(需要 workflow 权限)');
-    return;
-  }
-
+  if (!token) { alert('请先输入 GitHub Token'); return; }
   const arch = document.getElementById('arch').value;
-  const profile = document.getElementById('profile').value || 'generic';
   const fwSize = document.getElementById('fwSize').value || '0';
   const packages = [...selectedPackages.keys()].join(' ');
 
+  // 收集开关选项
+  const switches = {};
+  ['swIPv6','swDocker','swEFI','swLegacy','swBypass','swExt4'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.checked) {
+      const key = id.replace('sw','').toLowerCase();
+      packages += el.checked ? ` ${getSwitchPackage(key)}` : '';
+    }
+  });
+  // 主题
+  const theme = document.getElementById('theme').value;
+  if (theme) packages += ` ${theme}`;
+  // Web 服务器
+  const ws = document.getElementById('webServer').value;
+  if (ws === 'uhttpd') packages += ' uhttpd';
+  else if (ws === 'lighttpd') packages += ' lighttpd';
+
   const btn = document.getElementById('buildBtn');
   btn.disabled = true;
-  btn.textContent = '正在提交构建...';
-
-  const statusArea = document.getElementById('statusArea');
-  statusArea.classList.add('show');
+  btn.textContent = '正在提交...';
+  document.getElementById('statusArea').classList.add('show');
   document.getElementById('downloadLink').classList.remove('show');
+  document.getElementById('statusSteps').innerHTML = '';
   updateStatus('提交构建请求', 'running');
 
   try {
     const res = await fetch(`${API}/repos/${REPO}/actions/workflows/image-builder.yml/dispatches`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/vnd.github+json',
-      },
-      body: JSON.stringify({
-        ref: 'main',
-        inputs: {
-          arch,
-          packages,
-          profile,
-          firmware_size: fwSize,
-        }
-      })
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' },
+      body: JSON.stringify({ ref: 'main', inputs: {
+        arch, packages: packages.trim(), profile: selectedProfile, firmware_size: fwSize
+      }})
     });
-
     if (res.status !== 204) {
       const err = await res.json();
       throw new Error(err.message || `HTTP ${res.status}`);
     }
-
     updateStatus('构建请求已提交', 'done');
-    updateStatus('等待 runner 接单...', 'pending');
-    // 轮询 run 状态
+    updateStatus('等待 runner...', 'pending');
     setTimeout(() => pollRunStatus(), 5000);
-
   } catch (e) {
     updateStatus(`提交失败: ${e.message}`, 'error');
     btn.disabled = false;
@@ -271,34 +433,29 @@ async function triggerBuild() {
   }
 }
 
-// 轮询构建状态
+function getSwitchPackage(key) {
+  const map = { ipv6: 'ipv6', docker: 'dockerd e2fsprogs', efi: '', legacy: '', bypass: '', ext4: '' };
+  return map[key] || '';
+}
+
 async function pollRunStatus() {
   if (pollTimer) clearTimeout(pollTimer);
-
   try {
-    // 查最新的 image-builder run
     const res = await fetch(`${API}/repos/${REPO}/actions/workflows/image-builder.yml/runs?per_page=1`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     const data = await res.json();
     const run = data.workflow_runs[0];
-
-    if (!run) {
-      pollTimer = setTimeout(pollRunStatus, 10000);
-      return;
-    }
-
+    if (!run) { pollTimer = setTimeout(pollRunStatus, 10000); return; }
     currentRunId = run.id;
-
     if (run.status === 'queued') {
       updateStatus('排队中...', 'pending');
       pollTimer = setTimeout(pollRunStatus, 10000);
     } else if (run.status === 'in_progress') {
-      updateStatus('正在生成固件(make image)...', 'running');
+      updateStatus('正在生成固件...', 'running');
       pollTimer = setTimeout(pollRunStatus, 15000);
     } else if (run.conclusion === 'success') {
       updateStatus('固件生成完成', 'done');
-      // 从 Release 拿下载链接
       await fetchFirmwareLink();
       document.getElementById('buildBtn').disabled = false;
       document.getElementById('buildBtn').textContent = '生成固件';
@@ -313,7 +470,6 @@ async function pollRunStatus() {
   }
 }
 
-// 从最新 Release 获取固件下载链接
 async function fetchFirmwareLink() {
   try {
     const res = await fetch(`${API}/repos/${REPO}/releases?per_page=1`, {
@@ -329,9 +485,7 @@ async function fetchFirmwareLink() {
       dl.innerHTML = `<strong>固件已就绪:</strong><br>${links}<br><br><small>Release: ${r.tag_name}</small>`;
       dl.classList.add('show');
     }
-  } catch (e) {
-    console.warn('获取下载链接失败:', e);
-  }
+  } catch (e) {}
 }
 
 function updateStatus(text, state) {
@@ -341,7 +495,7 @@ function updateStatus(text, state) {
   if (!el) {
     el = document.createElement('div');
     el.id = id;
-    el.className = `status-step pending`;
+    el.className = 'status-step pending';
     el.innerHTML = `<span class="icon">○</span> <span class="text">${text}</span>`;
     area.appendChild(el);
   }

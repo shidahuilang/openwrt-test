@@ -127,6 +127,25 @@ jobs:
           [ "$errors" -eq 0 ] && echo "索引校验全部通过" || { echo "发现 $errors 处错误"; exit 1; }
 
       # ---------- 发布到 gh-pages ----------
+      - name: 下载设备列表(动态生成)
+        if: github.event.inputs.MODE == 'real'
+        run: |
+          # 尝试从最新编译 run 下载设备列表
+          RUN_ID="${{ github.event.inputs.RUN_ID }}"
+          if [[ -z "${RUN_ID}" ]]; then
+            RUN_ID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?name=devices-${FEED_ARCH}" --jq '.artifacts[0].workflow_run.id' 2>/dev/null || true)
+          fi
+          if [[ -n "${RUN_ID}" ]]; then
+            mkdir -p /tmp/devsrc
+            gh run download "${RUN_ID}" -n "devices-${FEED_ARCH}" -D /tmp/devsrc 2>/dev/null && \
+              cp /tmp/devsrc/devices.json /tmp/feedout/devices.json && \
+              echo "设备列表已加入发布目录" || echo "设备列表下载失败,跳过"
+          else
+            echo "未找到设备列表 Artifact,跳过"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.REPO_TOKEN }}
+
       - name: 复制前端页面到发布根目录
         run: |
           cp docs/index.html /tmp/feedout/

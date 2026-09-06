@@ -239,6 +239,56 @@ jobs:
         path: /tmp/packages-${{ env.FEED_ARCH }}.tar.gz
         retention-days: 3
 
+    - name: 生成设备列表(解压 ImageBuilder → make info → JSON)
+      if: steps.compile.outcome == 'success' && env.UPLOAD_RELEASE == 'true'
+      run: |
+        # 找到 ImageBuilder
+        IB_FILE=$(find "${FIRMWARE_PATH}" -name "*imagebuilder*" 2>/dev/null | head -1)
+        if [[ -z "${IB_FILE}" ]]; then
+          echo "未找到 ImageBuilder,跳过设备列表生成"
+          echo "DEVICES_GEN=false" >> ${GITHUB_ENV}
+          exit 0
+        fi
+        echo "解压 ImageBuilder: ${IB_FILE}"
+        mkdir -p /tmp/ib-devices
+        tar -xJf "${IB_FILE}" -C /tmp/ib-devices
+        IB_DIR=$(ls -d /tmp/ib-devices/openwrt-imagebuilder-* 2>/dev/null | head -1)
+        cd "${IB_DIR}"
+        # 运行 make info 并解析为 JSON
+        make info > /tmp/ib-info.txt 2>&1
+        # 提取 profile 列表并生成 JSON
+        python3 -c "
+        import json, re
+        profiles = []
+        current_target = ''
+        for line in open('/tmp/ib-info.txt'):
+            line = line.strip()
+            if line.startswith('Target:'):
+                current_target = line.split(':',1)[1].strip()
+            elif line and not line.startswith('Built-in') and not line.startswith('---'):
+                m = re.match(r'(\w[\w-]*)\s*:', line)
+                if m:
+                    name = m.group(1)
+                    desc = line.split(':',1)[1].strip() if ':' in line else name
+                    profiles.append({'profile': name, 'desc': desc, 'target': current_target})
+        devices = {'target': current_target, 'profiles': profiles}
+        with open('/tmp/devices.json','w') as f:
+            json.dump(devices, f, ensure_ascii=False, indent=2)
+        print(f'生成 {len(profiles)} 个设备 profile')
+        " 2>&1 || echo "解析失败,生成空列表"
+        if [[ ! -f /tmp/devices.json ]]; then
+          echo '{"target":"","profiles":[]}' > /tmp/devices.json
+        fi
+        echo "DEVICES_GEN=true" >> ${GITHUB_ENV}
+
+    - name: 上传设备列表 Artifact
+      if: steps.compile.outcome == 'success' && env.UPLOAD_RELEASE == 'true' && env.DEVICES_GEN == 'true'
+      uses: actions/upload-artifact@main
+      with:
+        name: devices-${{ env.FEED_ARCH }}
+        path: /tmp/devices.json
+        retention-days: 3
+
     - name: 触发软件源自动发布(gh-pages)
       if: steps.compile.outcome == 'success' && env.UPLOAD_RELEASE == 'true' && env.FEED_ARCH != 'none' && env.REPO_TOKEN
       run: |

@@ -225,3 +225,90 @@ body {
   .action-bar { flex-direction: column; gap: 12px; }
   .btn-build { width: 100%; }
 }
+
+/* 设备搜索下拉 */
+.device-search { position: relative; }
+.device-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  z-index: 100;
+}
+.device-dropdown.show { display: block; }
+.device-option {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 0.85em;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+.device-option:hover { background: rgba(0,180,216,0.12); }
+.device-option .profile { color: var(--accent); font-weight: 600; }
+.device-option .desc { color: var(--text-dim); font-size: 0.9em; margin-left: 8px; }
+
+/* 开关 */
+.switches {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 16px 0;
+}
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85em;
+  cursor: pointer;
+  color: var(--text);
+}
+.switch input { accent-color: var(--accent); transform: scale(1.15); }
+
+/* 代理选择 */
+.proxy-section, .popular-section {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin: 16px 0;
+}
+.proxy-section h3, .popular-section h3 { font-size: 1em; margin-bottom: 12px; }
+.proxy-section .hint, .popular-section .hint { font-size: 0.8em; color: var(--text-dim); font-weight: normal; }
+.proxy-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip-cb {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.chip-cb input { accent-color: var(--accent); }
+.chip-cb:has(input:checked) { background: rgba(0,180,216,0.15); border-color: var(--accent); }
+
+/* 常用插件网格 */
+.popular-grid { display: flex; flex-direction: column; gap: 2px; }
+.popular-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85em;
+  transition: background 0.15s;
+}
+.popular-item:hover { background: rgba(0,180,216,0.08); }
+.popular-item .pkg { font-weight: 600; }
+.popular-item .desc { color: var(--text-dim); }
+.popular-item .check { color: var(--success); display: none; }
+.popular-item.selected .check { display: inline; }
+

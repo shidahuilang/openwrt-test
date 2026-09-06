@@ -8,21 +8,27 @@
 </head>
 <body>
   <div class="container">
-    <!-- 标题 -->
     <div class="header">
       <h1>OpenWrt 在线固件生成器</h1>
-      <p>选架构 → 勾插件 → 一键生成定制固件（基于 ImageBuilder，无需编译）</p>
+      <p>选设备 → 勾插件 → 一键生成定制固件（基于 ImageBuilder，无需编译）</p>
     </div>
 
-    <!-- Token 配置 -->
+    <!-- Token -->
     <div class="token-area">
       <label>GitHub Token</label>
-      <input type="password" id="token" placeholder="ghp_xxx (需要 workflow 权限,仅存本地浏览器)">
-      <span class="hint">Token 仅存浏览器 localStorage,不上传任何服务器</span>
+      <input type="password" id="token" placeholder="ghp_xxx (需 workflow 权限,仅存本地)">
+      <span class="hint">仅存浏览器 localStorage</span>
     </div>
 
-    <!-- 配置栏 -->
+    <!-- 设备选择 + 基本配置 -->
     <div class="config-bar">
+      <div class="config-item" style="flex:2">
+        <label>设备型号 (搜索选择)</label>
+        <div class="device-search">
+          <input type="text" id="deviceSearch" placeholder="搜索设备 (如 x86, R2S,小米,华硕...)" autocomplete="off">
+          <div class="device-dropdown" id="deviceDropdown"></div>
+        </div>
+      </div>
       <div class="config-item">
         <label>目标架构</label>
         <select id="arch">
@@ -31,16 +37,80 @@
         </select>
       </div>
       <div class="config-item">
-        <label>设备型号 (x86 用 generic)</label>
-        <input type="text" id="profile" value="generic" placeholder="generic / 设备型号">
-      </div>
-      <div class="config-item">
-        <label>固件大小 MB (0=默认, x86 建议 1024)</label>
-        <input type="number" id="fwSize" value="0" min="0">
+        <label>固件大小 MB (0=默认,x86 建议 1024)</label>
+        <input type="number" id="fwSize" value="1024" min="0">
       </div>
     </div>
 
-    <!-- 插件区 -->
+    <!-- 高级配置 -->
+    <div class="config-bar">
+      <div class="config-item">
+        <label>后台地址</label>
+        <input type="text" id="lanIp" value="10.0.0.1" placeholder="10.0.0.1">
+      </div>
+      <div class="config-item">
+        <label>后台密码</label>
+        <input type="text" id="rootPwd" value="root" placeholder="root">
+      </div>
+      <div class="config-item">
+        <label>默认主题</label>
+        <select id="theme">
+          <option value="">默认</option>
+          <option value="luci-theme-argon">Argon</option>
+          <option value="luci-theme-argon-dark">Argon Dark</option>
+          <option value="luci-theme-bootstrap">Bootstrap</option>
+          <option value="luci-theme-material">Material</option>
+          <option value="luci-theme-openwrt-2020">OpenWrt 2020</option>
+          <option value="luci-theme-kucat">KuCat</option>
+          <option value="luci-theme-alpha">Alpha</option>
+          <option value="luci-theme-aurora">Aurora</option>
+          <option value="luci-theme-spectra">Spectra</option>
+        </select>
+      </div>
+      <div class="config-item">
+        <label>Web 服务器</label>
+        <select id="webServer">
+          <option value="nginx">Nginx</option>
+          <option value="uhttpd">Uhttpd</option>
+          <option value="lighttpd">Lighttpd</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 开关选项 -->
+    <div class="switches">
+      <label class="switch"><input type="checkbox" id="swIPv6" checked> IPv6</label>
+      <label class="switch"><input type="checkbox" id="swDocker"> Docker</label>
+      <label class="switch"><input type="checkbox" id="swEFI" checked> EFI 镜像</label>
+      <label class="switch"><input type="checkbox" id="swLegacy"> Legacy 镜像</label>
+      <label class="switch"><input type="checkbox" id="swBypass"> 旁路由模式</label>
+      <label class="switch"><input type="checkbox" id="swExt4"> ext4 文件系统</label>
+    </div>
+
+    <!-- 互联网代理 -->
+    <div class="proxy-section">
+      <h3>代理工具</h3>
+      <div class="proxy-chips">
+        <label class="chip-cb"><input type="checkbox" value="luci-app-passwall" checked> PassWall</label>
+        <label class="chip-cb"><input type="checkbox" value="luci-app-passwall2"> PassWall2</label>
+        <label class="chip-cb"><input type="checkbox" value="luci-app-ssr-plus"> SSR-Plus</label>
+        <label class="chip-cb"><input type="checkbox" value="luci-app-openclash"> OpenClash</label>
+        <label class="chip-cb"><input type="checkbox" value="luci-app-homeproxy"> HomeProxy</label>
+        <label class="chip-cb"><input type="checkbox" value="luci-app-nikki"> Nikki</label>
+        <label class="chip-cb"><input type="checkbox" value="luci-app-nekobox"> NeKoBox</label>
+        <label class="chip-cb"><input type="checkbox" value="luci-app-v2raya"> v2rayA</label>
+        <label class="chip-cb"><input type="checkbox" value="luci-app-daed"> Daed</label>
+        <label class="chip-cb"><input type="checkbox" value="luci-xray"> luci-xray</label>
+      </div>
+    </div>
+
+    <!-- 常用插件 -->
+    <div class="popular-section">
+      <h3>常用插件 <span class="hint">(点击添加,更多插件请在下方搜索)</span></h3>
+      <div class="popular-grid" id="popularGrid"></div>
+    </div>
+
+    <!-- 插件搜索 -->
     <div class="package-section">
       <div class="package-toolbar">
         <div class="search-box">
