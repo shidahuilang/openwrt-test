@@ -216,7 +216,41 @@ jobs:
       with:
         name: ${{ env.SOURCE }}-${{ env.LUCI_EDITION }}-${{ env.TARGET_PROFILE }}-firmware-${{ env.Firmware_Date }}
         path: ${{ env.FIRMWARE_PATH }}
-    
+
+    - name: 打包全量软件包并上传(软件源发布用)
+      if: steps.compile.outcome == 'success' && env.UPLOAD_RELEASE == 'true'
+      run: |
+        PKG_DIR=$(ls -d ${FIRMWARE_PATH}/../../packages/*/ 2>/dev/null | head -1)
+        if [[ -n "${PKG_DIR}" ]]; then
+          ARCH=$(basename "${PKG_DIR}")
+          echo "FEED_ARCH=${ARCH}" >> ${GITHUB_ENV}
+          cd "${PKG_DIR}.." && tar -czf "/tmp/packages-${ARCH}.tar.gz" .
+          echo "上传软件包 Artifact: packages-${ARCH} ($(du -h /tmp/packages-${ARCH}.tar.gz | cut -f1))"
+        else
+          echo "未找到 bin/packages 目录,跳过软件源发布"
+          echo "FEED_ARCH=none" >> ${GITHUB_ENV}
+        fi
+
+    - name: 上传全量软件包 Artifact
+      if: steps.compile.outcome == 'success' && env.UPLOAD_RELEASE == 'true' && env.FEED_ARCH != 'none'
+      uses: actions/upload-artifact@main
+      with:
+        name: packages-${{ env.FEED_ARCH }}
+        path: /tmp/packages-${{ env.FEED_ARCH }}.tar.gz
+        retention-days: 3
+
+    - name: 触发软件源自动发布(gh-pages)
+      if: steps.compile.outcome == 'success' && env.UPLOAD_RELEASE == 'true' && env.FEED_ARCH != 'none' && env.REPO_TOKEN
+      run: |
+        gh api -X POST "repos/${GITHUB_REPOSITORY}/actions/workflows/publish-feed.yml/dispatches" \
+          -f ref=main \
+          -f "inputs[MODE]=real" \
+          -f "inputs[ARCH]=${FEED_ARCH}" \
+          -f "inputs[RUN_ID]=${{ github.run_id }}"
+        echo "已触发 publish-feed (real, ${FEED_ARCH}, run=${{ github.run_id }})"
+      env:
+        GH_TOKEN: ${{ secrets.REPO_TOKEN }}
+
     - name: 发布固件
       if: steps.compile.outcome == 'success' && env.UPLOAD_RELEASE == 'true' && env.ING_FIRMWAR == 'true' && env.REPO_TOKEN
       uses: ncipollo/release-action@main

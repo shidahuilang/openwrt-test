@@ -31,9 +31,14 @@ on:
           - 'aarch64_cortex-a72'
           - 'arm_cortex-a7_neon-vfpv4'
           - 'mipsel_24kc'
+      RUN_ID:
+        description: '编译 run 的 ID(real 模式跨 run 下载 packages Artifact;留空则自动找最新的)'
+        required: false
+        default: ''
 
 permissions:
   contents: write   # 推送 gh-pages 分支
+  actions: read     # real 模式跨 run 下载编译产物 Artifact
 
 env:
   FEED_ARCH: ${{ github.event.inputs.ARCH || 'x86_64' }}
@@ -83,10 +88,21 @@ jobs:
       # ---------- real 模式:从 Artifact 取真实编译产物 ----------
       - name: 下载真实编译产物 Artifact
         if: github.event.inputs.MODE == 'real'
-        uses: actions/download-artifact@v4
-        with:
-          name: packages-${{ env.FEED_ARCH }}
-          path: /tmp/pkgsrc
+        run: |
+          RUN_ID="${{ github.event.inputs.RUN_ID }}"
+          if [[ -z "${RUN_ID}" ]]; then
+            RUN_ID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?name=packages-${FEED_ARCH}" --jq '.artifacts[0].workflow_run.id' 2>/dev/null || true)
+          fi
+          if [[ -z "${RUN_ID}" ]]; then
+            echo "::error::未指定 RUN_ID 且未找到 packages-${FEED_ARCH} Artifact"
+            exit 1
+          fi
+          echo "从 run ${RUN_ID} 下载 packages-${FEED_ARCH}"
+          rm -rf /tmp/pkgsrc && mkdir -p /tmp/pkgsrc
+          gh run download "${RUN_ID}" -n "packages-${FEED_ARCH}" -D /tmp/pkgsrc
+          echo "下载内容:" && ls /tmp/pkgsrc
+        env:
+          GH_TOKEN: ${{ secrets.REPO_TOKEN }}
 
       - name: 整理发布结构并生成索引(real)
         if: github.event.inputs.MODE == 'real'
