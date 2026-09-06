@@ -1,3 +1,6 @@
+# 全量包构建:feeds 里所有插件(含未选中的)都编译成 ipk 进软件源,固件本身仍只装下方选中的;固件后台 UI 可在线补装任意插件及依赖
+CONFIG_ALL=y
+
 CONFIG_TARGET_x86=y
 CONFIG_TARGET_x86_64=y
 CONFIG_TARGET_x86_64_Generic=y
