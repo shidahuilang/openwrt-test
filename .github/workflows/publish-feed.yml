@@ -127,6 +127,13 @@ jobs:
           [ "$errors" -eq 0 ] && echo "索引校验全部通过" || { echo "发现 $errors 处错误"; exit 1; }
 
       # ---------- 发布到 gh-pages ----------
+      - name: 复制前端页面到发布根目录
+        run: |
+          cp docs/index.html /tmp/feedout/
+          cp docs/app.js /tmp/feedout/
+          cp docs/style.css /tmp/feedout/
+          echo "前端页面已加入发布目录"
+
       - name: 发布到 gh-pages 分支
         uses: peaceiris/actions-gh-pages@v4
         with:
@@ -135,7 +142,7 @@ jobs:
           publish_dir: /tmp/feedout
           keep_files: false
           force_orphan: true
-          commit_message: "发布软件源 ${{ env.FEED_ARCH }} (${{ github.event.inputs.MODE || 'sample' }})"
+          commit_message: "发布软件源+前端页面 ${{ env.FEED_ARCH }} (${{ github.event.inputs.MODE || 'sample' }})"
 
       - name: 等待 Pages 部署并验证可访问
         run: |
