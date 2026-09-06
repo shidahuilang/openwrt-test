@@ -116,6 +116,11 @@ jobs:
         git clone -b "${REPO_BRANCH}" --single-branch "${REPO_URL}" openwrt
         ln -sf /${{ env.DIY_WORK }}/openwrt ${GITHUB_WORKSPACE}/openwrt
         cp -Rf ${GITHUB_WORKSPACE}/build ${GITHUB_WORKSPACE}/openwrt/build
+        # 复制共用文件(motd/profile 等)到源码 files 目录,消除 4 源码重复
+        if [[ -d ${GITHUB_WORKSPACE}/build/shared/files ]]; then
+          mkdir -p ${GITHUB_WORKSPACE}/openwrt/build/${SOURCE_CODE,,}/files 2>/dev/null || true
+          cp -Rf ${GITHUB_WORKSPACE}/build/shared/files/* ${GITHUB_WORKSPACE}/openwrt/build/${SOURCE_CODE,,}/files/ 2>/dev/null || true
+        fi
         chmod -R +x ${GITHUB_WORKSPACE}/openwrt/build
 
     - name: 修改 feeds.conf.default
@@ -169,7 +174,7 @@ jobs:
         
     - name: 缓存加速
       if: env.CACHEWRTBUILD_SWITCH == 'true'
-      uses: stupidloud/cachewrtbuild@main
+      uses: stupidloud/cachewrtbuild@v1.9.0
       with:
         ccache: 'false'
         mixkey: "${{ env.TARGET_PROFILE }}"
@@ -193,7 +198,7 @@ jobs:
         
     - name: 自动打包Amlogic_Rockchip系列固件
       if: steps.compile.outcome == 'success' && env.PACKAGING_FIRMWARE == 'true'
-      uses: ncipollo/release-action@main
+      uses: ncipollo/release-action@v1.16.0
       with:
         name: rootfs.tar.gz
         tag: targz
@@ -212,7 +217,7 @@ jobs:
         
     - name: 上传固件在 github Artifacts
       if: steps.compile.outcome == 'success' && env.UPLOAD_FIRMWARE == 'true'
-      uses: actions/upload-artifact@main
+      uses: actions/upload-artifact@v4.4.3
       with:
         name: ${{ env.SOURCE }}-${{ env.LUCI_EDITION }}-${{ env.TARGET_PROFILE }}-firmware-${{ env.Firmware_Date }}
         path: ${{ env.FIRMWARE_PATH }}
@@ -233,7 +238,7 @@ jobs:
 
     - name: 上传全量软件包 Artifact
       if: steps.compile.outcome == 'success' && env.UPLOAD_RELEASE == 'true' && env.FEED_ARCH != 'none'
-      uses: actions/upload-artifact@main
+      uses: actions/upload-artifact@v4.4.3
       with:
         name: packages-${{ env.FEED_ARCH }}
         path: /tmp/packages-${{ env.FEED_ARCH }}.tar.gz
@@ -257,25 +262,48 @@ jobs:
         # 运行 make info 并解析为 JSON
         make info > /tmp/ib-info.txt 2>&1
         # 提取 profile 列表并生成 JSON
-        python3 -c "
+        # ImageBuilder make info 输出格式:
+        #   Target: x86
+        #   Subtarget: 64
+        #   Generic Profiles:
+        #   generic: Generic x86/64
+        #   Device Profiles:
+        #   <profile>: <vendor> <model>
+        # 只在 "Profiles:" 段落内解析 <name>: <desc> 行,避免误把元数据当成 profile
+        python3 << 'PYEOF' || echo "解析失败,生成空列表"
         import json, re
         profiles = []
         current_target = ''
-        for line in open('/tmp/ib-info.txt'):
-            line = line.strip()
-            if line.startswith('Target:'):
-                current_target = line.split(':',1)[1].strip()
-            elif line and not line.startswith('Built-in') and not line.startswith('---'):
-                m = re.match(r'(\w[\w-]*)\s*:', line)
-                if m:
-                    name = m.group(1)
-                    desc = line.split(':',1)[1].strip() if ':' in line else name
-                    profiles.append({'profile': name, 'desc': desc, 'target': current_target})
-        devices = {'target': current_target, 'profiles': profiles}
-        with open('/tmp/devices.json','w') as f:
+        current_subtarget = ''
+        in_profiles = False
+        with open('/tmp/ib-info.txt', errors='ignore') as f:
+            for raw in f:
+                s = raw.strip()
+                if s.startswith('Target:'):
+                    current_target = s.split(':', 1)[1].strip()
+                    in_profiles = False
+                    continue
+                if s.startswith('Subtarget:'):
+                    current_subtarget = s.split(':', 1)[1].strip()
+                    in_profiles = False
+                    continue
+                if s.endswith(' Profiles:'):
+                    in_profiles = True
+                    continue
+                if not s or s.startswith('Built-in') or s.startswith('---') or s.startswith('Packages'):
+                    continue
+                if in_profiles:
+                    m = re.match(r'^([A-Za-z0-9][\w.,+\-]*)\s*:\s*(.*)$', s)
+                    if m:
+                        name = m.group(1)
+                        desc = m.group(2).strip() or name
+                        target_str = current_target + ('/' + current_subtarget if current_subtarget else '')
+                        profiles.append({'profile': name, 'desc': desc, 'target': target_str})
+        devices = {'target': current_target, 'subtarget': current_subtarget, 'profiles': profiles}
+        with open('/tmp/devices.json', 'w') as f:
             json.dump(devices, f, ensure_ascii=False, indent=2)
-        print(f'生成 {len(profiles)} 个设备 profile')
-        " 2>&1 || echo "解析失败,生成空列表"
+        print('生成 %d 个设备 profile (target=%s, subtarget=%s)' % (len(profiles), current_target, current_subtarget))
+        PYEOF
         if [[ ! -f /tmp/devices.json ]]; then
           echo '{"target":"","profiles":[]}' > /tmp/devices.json
         fi
@@ -283,7 +311,7 @@ jobs:
 
     - name: 上传设备列表 Artifact
       if: steps.compile.outcome == 'success' && env.UPLOAD_RELEASE == 'true' && env.DEVICES_GEN == 'true'
-      uses: actions/upload-artifact@main
+      uses: actions/upload-artifact@v4.4.3
       with:
         name: devices-${{ env.FEED_ARCH }}
         path: /tmp/devices.json
@@ -303,7 +331,7 @@ jobs:
 
     - name: 发布固件
       if: steps.compile.outcome == 'success' && env.UPLOAD_RELEASE == 'true' && env.ING_FIRMWAR == 'true' && env.REPO_TOKEN
-      uses: ncipollo/release-action@main
+      uses: ncipollo/release-action@v1.16.0
       with:
         name: ${{ env.SOURCE }}-${{ env.PROMPT_TING }}
         tag: a${{ env.date }}
@@ -321,7 +349,7 @@ jobs:
     - name: 发送[在线更新固件]至云端1
       id: autoup
       if: steps.compile.outcome == 'success' && env.UPDATE_FIRMWARE_ONLINE == 'true' && env.REPO_TOKEN
-      uses: ncipollo/release-action@main
+      uses: ncipollo/release-action@v1.16.0
       with:
         name: AutoUpdate
         tag: ${{ env.Update_tag }}
@@ -342,7 +370,7 @@ jobs:
         
     - name: 发送[在线更新固件]至云端3
       if: steps.autoup.outcome == 'success' && env.UPDATE_FIRMWARE_ONLINE == 'true' && env.REPO_TOKEN
-      uses: ncipollo/release-action@main
+      uses: ncipollo/release-action@v1.16.0
       with:
         name: AutoUpdate-${{ env.TARGET_BOARD }}
         tag: ${{ env.Update_tag }}

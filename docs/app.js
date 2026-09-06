@@ -386,15 +386,10 @@ async function triggerBuild() {
   const fwSize = document.getElementById('fwSize').value || '0';
   const packages = [...selectedPackages.keys()].join(' ');
 
-  // 收集开关选项
-  const switches = {};
-  ['swIPv6','swDocker','swEFI','swLegacy','swBypass','swExt4'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el && el.checked) {
-      const key = id.replace('sw','').toLowerCase();
-      packages += el.checked ? ` ${getSwitchPackage(key)}` : '';
-    }
-  });
+  // 收集代理工具勾选
+  const proxyChips = document.querySelectorAll('.proxy-chips input:checked');
+  proxyChips.forEach(cb => { if (cb.value) packages += ` ${cb.value}`; });
+
   // 主题
   const theme = document.getElementById('theme').value;
   if (theme) packages += ` ${theme}`;
@@ -416,7 +411,12 @@ async function triggerBuild() {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' },
       body: JSON.stringify({ ref: 'main', inputs: {
-        arch, packages: packages.trim(), profile: selectedProfile, firmware_size: fwSize
+        arch, packages: packages.trim(), profile: selectedProfile, firmware_size: fwSize,
+        ipv6: document.getElementById('swIPv6').checked ? 'true' : 'false',
+        docker: document.getElementById('swDocker').checked ? 'true' : 'false',
+        efi: document.getElementById('swEFI').checked ? 'true' : 'false',
+        legacy: document.getElementById('swLegacy').checked ? 'true' : 'false',
+        ext4: document.getElementById('swExt4').checked ? 'true' : 'false',
       }})
     });
     if (res.status !== 204) {
@@ -431,11 +431,6 @@ async function triggerBuild() {
     btn.disabled = false;
     btn.textContent = '生成固件';
   }
-}
-
-function getSwitchPackage(key) {
-  const map = { ipv6: 'ipv6', docker: 'dockerd e2fsprogs', efi: '', legacy: '', bypass: '', ext4: '' };
-  return map[key] || '';
 }
 
 async function pollRunStatus() {

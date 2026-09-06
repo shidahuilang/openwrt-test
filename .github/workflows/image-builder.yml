@@ -26,6 +26,31 @@ on:
         required: false
         default: '0'
         type: string
+      ipv6:
+        description: '是否启用 IPv6 (true/false)'
+        required: false
+        default: 'true'
+        type: string
+      docker:
+        description: '是否启用 Docker (true/false)'
+        required: false
+        default: 'false'
+        type: string
+      efi:
+        description: '是否生成 EFI 镜像 (true/false)'
+        required: false
+        default: 'true'
+        type: string
+      legacy:
+        description: '是否生成 Legacy 镜像 (true/false)'
+        required: false
+        default: 'false'
+        type: string
+      ext4:
+        description: '是否使用 ext4 文件系统 (false=squashfs)'
+        required: false
+        default: 'false'
+        type: string
 
 env:
   IB_REPO: ${{ github.repository }}
@@ -73,18 +98,22 @@ jobs:
         run: |
           cd "${IB_DIR}"
           echo "配置 repositories.conf 指向自建源"
-          cat > repositories.conf <<'REPO'
+          cat > repositories.conf <<REPO
           src/gz custom_base ${FEED_URL}/${ARCH}/base
           src/gz custom_luci ${FEED_URL}/${ARCH}/luci
           src/gz custom_packages ${FEED_URL}/${ARCH}/packages
           src/gz custom_routing ${FEED_URL}/${ARCH}/routing
           src/gz custom_telephony ${FEED_URL}/${ARCH}/telephony
           REPO
-          # 如果自建源没有某些基础包,保留官方源做兜底
+          # 官方源兜底(基础包)——用 ARCH 对应的官方 target 路径
           echo "" >> repositories.conf
-          echo "# 官方源兜底(基础包)" >> repositories.conf
-          ARCH_DASHED=$(echo "${ARCH}" | tr '_' '-')
-          echo "src/gz openwrt_base https://downloads.openwrt.org/snapshots/targets/${ARCH_DASHED}/generic/packages" >> repositories.conf || true
+          echo "# 官方源兜底" >> repositories.conf
+          case "${ARCH}" in
+            x86_64)        SRC_PATH="x86/64" ;;
+            aarch64_generic) SRC_PATH="armsr/armv8" ;;
+            *)             SRC_PATH="${ARCH}" ;;
+          esac
+          echo "src/gz openwrt_base https://downloads.openwrt.org/snapshots/targets/${SRC_PATH}/packages" >> repositories.conf || true
           cat repositories.conf
 
       - name: 安装依赖
@@ -95,15 +124,35 @@ jobs:
       - name: 生成固件
         run: |
           cd "${IB_DIR}"
+          # 根据开关扩展包列表
+          PKGS="${PACKAGES}"
+          if [[ "${{ inputs.ipv6 }}" == "true" ]]; then
+            PKGS="${PKGS} ip6tables ip6tables-nft -dnsmasq dnsmasq-full odhcp6c odhcpd-ipv6only"
+          fi
+          if [[ "${{ inputs.docker }}" == "true" ]]; then
+            PKGS="${PKGS} dockerd dockerd-config docker-compose luci-app-dockerman luci-compose block-mount e2fsprogs fdisk"
+          fi
+          # 文件系统选择:ext4 或 squashfs(默认)
+          FS_TYPE="squashfs"
+          if [[ "${{ inputs.ext4 }}" == "true" ]]; then
+            FS_TYPE="ext4"
+          fi
           # 构建参数
-          MAKE_ARGS="image PROFILE=${PROFILE} PACKAGES='${PACKAGES}'"
+          MAKE_ARGS="image PROFILE=${PROFILE} PACKAGES='${PKGS}'"
           if [[ "${FW_SIZE}" != "0" ]]; then
             MAKE_ARGS="${MAKE_ARGS} ROOTFS_PARTSIZE=${FW_SIZE}"
           fi
+          # x86 镜像类型控制(EFI/Legacy)
+          if [[ "${ARCH}" == "x86_64" ]]; then
+            if [[ "${{ inputs.efi }}" == "false" && "${{ inputs.legacy }}" == "false" ]]; then
+              echo "::error::EFI 和 Legacy 至少选一个"
+              exit 1
+            fi
+          fi
           echo "执行: make ${MAKE_ARGS}"
-          make ${MAKE_ARGS} -j4 2>&1 | tail -30
+          make ${MAKE_ARGS} -j4 2>&1 | tail -40
           # 检查固件是否产出
-          FW_FILE=$(find bin/targets -name "*.img" -o -name "*.squashfs" -o -name "*combined*" 2>/dev/null | head -1)
+          FW_FILE=$(find bin/targets -name "*.img*" -o -name "*.squashfs*" -o -name "*combined*" -o -name "*ext4*" 2>/dev/null | head -1)
           if [[ -z "${FW_FILE}" ]]; then
             echo "::error::固件未产出,请检查插件依赖是否完整"
             find bin/ -type f 2>/dev/null | head -20
