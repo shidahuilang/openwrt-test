@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenWrt 在线固件生成器</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- 标题 -->
+    <div class="header">
+      <h1>OpenWrt 在线固件生成器</h1>
+      <p>选架构 → 勾插件 → 一键生成定制固件（基于 ImageBuilder，无需编译）</p>
+    </div>
+
+    <!-- Token 配置 -->
+    <div class="token-area">
+      <label>GitHub Token</label>
+      <input type="password" id="token" placeholder="ghp_xxx (需要 workflow 权限,仅存本地浏览器)">
+      <span class="hint">Token 仅存浏览器 localStorage,不上传任何服务器</span>
+    </div>
+
+    <!-- 配置栏 -->
+    <div class="config-bar">
+      <div class="config-item">
+        <label>目标架构</label>
+        <select id="arch">
+          <option value="x86_64">x86_64 (x86 路由器)</option>
+          <option value="aarch64_generic">aarch64_generic (ARM64)</option>
+        </select>
+      </div>
+      <div class="config-item">
+        <label>设备型号 (x86 用 generic)</label>
+        <input type="text" id="profile" value="generic" placeholder="generic / 设备型号">
+      </div>
+      <div class="config-item">
+        <label>固件大小 MB (0=默认, x86 建议 1024)</label>
+        <input type="number" id="fwSize" value="0" min="0">
+      </div>
+    </div>
+
+    <!-- 插件区 -->
+    <div class="package-section">
+      <div class="package-toolbar">
+        <div class="search-box">
+          <input type="text" id="search" placeholder="搜索插件 (如 passwall, clash, dns...)">
+        </div>
+        <div class="filter-chips">
+          <span class="chip active" data-cat="all">全部</span>
+          <span class="chip" data-cat="LuCI 界面">LuCI 界面</span>
+          <span class="chip" data-cat="内核模块">内核模块</span>
+          <span class="chip" data-cat="协议支持">协议支持</span>
+          <span class="chip" data-cat="其他">其他</span>
+        </div>
+      </div>
+      <div class="package-list" id="packageList">
+        <div class="empty">正在加载插件清单...</div>
+      </div>
+    </div>
+
+    <!-- 操作栏 -->
+    <div class="action-bar">
+      <div class="selected-info">
+        已选 <span class="count" id="selCount">0</span> 个插件 /
+        <span class="size" id="selSize">0B</span>
+      </div>
+      <button class="btn-build" id="buildBtn" disabled>生成固件</button>
+    </div>
+
+    <!-- 状态区 -->
+    <div class="status-area" id="statusArea">
+      <h3>构建状态</h3>
+      <div id="statusSteps"></div>
+      <div class="download-link" id="downloadLink"></div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

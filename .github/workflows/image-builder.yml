@@ -1,0 +1,153 @@
+name: 在线固件生成
+
+# 路线 B:纯 GitHub Actions,无服务器
+# 用户通过前端页面触发,下载 ImageBuilder + 全量 ipk → make image → 发布固件
+
+on:
+  workflow_dispatch:
+    inputs:
+      arch:
+        description: '目标架构(如 x86_64 / aarch64_generic)'
+        required: true
+        default: 'x86_64'
+        type: string
+      packages:
+        description: '插件清单(空格分隔,如: luci-app-passwall luci-app-smartdns)'
+        required: true
+        default: ''
+        type: string
+      profile:
+        description: '设备型号(x86_64 用 generic,ARM 设备填具体型号)'
+        required: false
+        default: 'generic'
+        type: string
+      firmware_size:
+        description: '固件大小(MB,0=默认,x86 建议 1024)'
+        required: false
+        default: '0'
+        type: string
+
+env:
+  IB_REPO: ${{ github.repository }}
+  FEED_URL: https://shidahuilang.github.io/openwrt-test
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+
+    steps:
+      - name: 环境变量
+        run: |
+          echo "ARCH=${{ inputs.arch }}" >> ${GITHUB_ENV}
+          echo "PACKAGES=${{ inputs.packages }}" >> ${GITHUB_ENV}
+          echo "PROFILE=${{ inputs.profile }}" >> ${GITHUB_ENV}
+          echo "FW_SIZE=${{ inputs.firmware_size }}" >> ${GITHUB_ENV}
+          echo "BUILD_ID=$(date +%Y%m%d-%H%M%S)" >> ${GITHUB_ENV}
+
+      - name: 下载 ImageBuilder
+        run: |
+          echo "从最新 Release 下载 ImageBuilder (${ARCH})"
+          # 列出所有 Release assets,找 ImageBuilder
+          IB_URL=$(gh api "repos/${IB_REPO}/releases" --jq '[.[].assets[] | select(.name | test("imagebuilder.*'"${ARCH}"'"))][0].browser_download_url' 2>/dev/null | head -1)
+          if [[ -z "${IB_URL}" ]]; then
+            echo "::error::未找到 ${ARCH} 架构的 ImageBuilder,请先编译产出(CONFIG_IB=y)"
+            exit 1
+          fi
+          echo "下载: ${IB_URL}"
+          wget -q -O /tmp/ib.tar.xz "${IB_URL}"
+          tar -xJf /tmp/ib.tar.xz -C /tmp/
+          IB_DIR=$(ls -d /tmp/openwrt-imagebuilder-*-${ARCH}-* 2>/dev/null | head -1)
+          if [[ -z "${IB_DIR}" ]]; then
+            echo "::error::解压后未找到 ImageBuilder 目录"
+            exit 1
+          fi
+          echo "IB_DIR=${IB_DIR}" >> ${GITHUB_ENV}
+          echo "ImageBuilder 解压完成: ${IB_DIR}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 配置自建软件源
+        run: |
+          cd "${IB_DIR}"
+          echo "配置 repositories.conf 指向自建源"
+          cat > repositories.conf <<'REPO'
+          src/gz custom_base ${FEED_URL}/${ARCH}/base
+          src/gz custom_luci ${FEED_URL}/${ARCH}/luci
+          src/gz custom_packages ${FEED_URL}/${ARCH}/packages
+          src/gz custom_routing ${FEED_URL}/${ARCH}/routing
+          src/gz custom_telephony ${FEED_URL}/${ARCH}/telephony
+          REPO
+          # 如果自建源没有某些基础包,保留官方源做兜底
+          echo "" >> repositories.conf
+          echo "# 官方源兜底(基础包)" >> repositories.conf
+          ARCH_DASHED=$(echo "${ARCH}" | tr '_' '-')
+          echo "src/gz openwrt_base https://downloads.openwrt.org/snapshots/targets/${ARCH_DASHED}/generic/packages" >> repositories.conf || true
+          cat repositories.conf
+
+      - name: 安装依赖
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential libncurses-dev libz-dev zlib1g-dev gawk unzip git rsync python3
+
+      - name: 生成固件
+        run: |
+          cd "${IB_DIR}"
+          # 构建参数
+          MAKE_ARGS="image PROFILE=${PROFILE} PACKAGES='${PACKAGES}'"
+          if [[ "${FW_SIZE}" != "0" ]]; then
+            MAKE_ARGS="${MAKE_ARGS} ROOTFS_PARTSIZE=${FW_SIZE}"
+          fi
+          echo "执行: make ${MAKE_ARGS}"
+          make ${MAKE_ARGS} -j4 2>&1 | tail -30
+          # 检查固件是否产出
+          FW_FILE=$(find bin/targets -name "*.img" -o -name "*.squashfs" -o -name "*combined*" 2>/dev/null | head -1)
+          if [[ -z "${FW_FILE}" ]]; then
+            echo "::error::固件未产出,请检查插件依赖是否完整"
+            find bin/ -type f 2>/dev/null | head -20
+            exit 1
+          fi
+          echo "固件产出: ${FW_FILE}"
+          echo "FW_FILE=${FW_FILE}" >> ${GITHUB_ENV}
+
+      - name: 收集固件文件
+        run: |
+          mkdir -p /tmp/firmware
+          cp -r ${IB_DIR}/bin/targets/*/*/* /tmp/firmware/ 2>/dev/null || true
+          # 生成构建信息
+          cat > /tmp/firmware/build-info.txt <<EOF
+          架构: ${ARCH}
+          设备: ${PROFILE}
+          插件: ${PACKAGES}
+          构建时间: ${BUILD_ID}
+          源: ${FEED_URL}
+          EOF
+          ls -lh /tmp/firmware/
+
+      - name: 发布固件到 Release
+        run: |
+          TAG="firmware-${ARCH}-${BUILD_ID}"
+          gh release create "${TAG}" /tmp/firmware/* \
+            --title "自定义固件 ${ARCH} ${BUILD_ID}" \
+            --notes "架构: ${ARCH}
+          设备: ${PROFILE}
+          插件清单: ${PACKAGES}
+          构建时间: ${BUILD_ID}" \
+            --target main
+          echo "固件已发布: Release ${TAG}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 输出下载信息
+        run: |
+          TAG="firmware-${ARCH}-${BUILD_ID}"
+          echo "## 构建完成" >> ${GITHUB_STEP_SUMMARY}
+          echo "" >> ${GITHUB_STEP_SUMMARY}
+          echo "| 项目 | 内容 |" >> ${GITHUB_STEP_SUMMARY}
+          echo "|---|---|" >> ${GITHUB_STEP_SUMMARY}
+          echo "| 架构 | ${ARCH} |" >> ${GITHUB_STEP_SUMMARY}
+          echo "| 设备 | ${PROFILE} |" >> ${GITHUB_STEP_SUMMARY}
+          echo "| 插件 | ${PACKAGES} |" >> ${GITHUB_STEP_SUMMARY}
+          echo "| Release | [${TAG}](${IB_REPO}/releases/tag/${TAG}) |" >> ${GITHUB_STEP_SUMMARY}
