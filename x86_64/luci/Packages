@@ -1,0 +1,9 @@
+Package: luci-app-demo
+Version: 1.0.0
+Depends: libc
+Architecture: x86_64
+Description: 测试包:LuCI界面示例
+Filename: luci-app-demo_1.0.0_x86_64.ipk
+Size: 670
+SHA256sum: cff83c24ea1beb10fe49257cf100e43599cbdad1d02cfe044bbf26a1b38219a5
+

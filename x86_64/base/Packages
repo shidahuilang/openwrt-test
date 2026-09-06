@@ -1,0 +1,18 @@
+Package: demo-tool
+Version: 1.0.1
+Depends: libc
+Architecture: x86_64
+Description: 测试包:演示多包索引
+Filename: demo-tool_1.0.1_x86_64.ipk
+Size: 662
+SHA256sum: 4639c6e4f6942e163ede86bd186555aa866530039dec2d1cc35c075c99c78f66
+
+Package: hello-test
+Version: 1.0.0
+Depends: libc
+Architecture: x86_64
+Description: 测试包:验证自建软件源链路
+Filename: hello-test_1.0.0_x86_64.ipk
+Size: 674
+SHA256sum: 53963476402dada3555f8631a9e7d07abe3a93387642e91659edc34dcca0f6ab
+
