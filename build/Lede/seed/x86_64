@@ -69,8 +69,6 @@ CONFIG_PACKAGE_iputils-arping=y
 CONFIG_PACKAGE_ipv6helper=y
 CONFIG_PACKAGE_kmod-fs-msdos=y
 CONFIG_PACKAGE_kmod-fuse=y
-# 内核6.18起 hci_uart 依赖 serdev.ko，但源码树无 kmod 包提供该模块，ALL_KMODS 全选会导致编译失败，故排除
-# CONFIG_PACKAGE_kmod-hci-uart is not set
 CONFIG_PACKAGE_kmod-inet-diag=y
 CONFIG_PACKAGE_kmod-ipt-iprange=y
 CONFIG_PACKAGE_kmod-ipt-physdev=y
