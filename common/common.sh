@@ -445,9 +445,12 @@ XWRT)
 ;;
 esac
 
-for X in $(ls -1 "${HOME_PATH}/feeds/passwall_packages"); do
-  find . -type d -name "${X}" |grep -v 'langge\|passwall\|passwall_packages\|passwall_luci' |xargs -i rm -rf {}
-done
+# passwall_packages feed 在 Diy_zdypartsh() 中才重新添加,此阶段可能不存在
+if [[ -d "${HOME_PATH}/feeds/passwall_packages" ]]; then
+  for X in $(ls -1 "${HOME_PATH}/feeds/passwall_packages"); do
+    find . -type d -name "${X}" |grep -v 'langge\|passwall\|passwall_packages\|passwall_luci' |xargs -i rm -rf {}
+  done
+fi
 # 删除软件包自带插件
 rm -rf feeds/packages/net/softethervpn5
 rm -rf feeds/packages/net/cloudflared
@@ -467,11 +470,12 @@ if [[ -d "${HOME_PATH}/feeds/langge1/relevance/kcptun" ]]; then
   mv -f ${HOME_PATH}/feeds/langge1/relevance/kcptun ${HOME_PATH}/feeds/packages/net/kcptun
 fi
 
-if [[ ! -d "${HOME_PATH}/feeds/packages/lang/rust" ]]; then
+# rust/packr 源码已在重构(340b637)中清理,仅当本地仍保留时才复制
+if [[ ! -d "${HOME_PATH}/feeds/packages/lang/rust" ]] && [[ -d "${HOME_PATH}/build/common/Share/rust" ]]; then
   cp -Rf ${HOME_PATH}/build/common/Share/rust ${HOME_PATH}/feeds/packages/lang/rust
 fi
 
-[[ ! -d "${HOME_PATH}/feeds/packages/devel/packr" ]] && cp -Rf ${HOME_PATH}/build/common/Share/packr ${HOME_PATH}/feeds/packages/devel/packr
+[[ ! -d "${HOME_PATH}/feeds/packages/devel/packr" ]] && [[ -d "${HOME_PATH}/build/common/Share/packr" ]] && cp -Rf ${HOME_PATH}/build/common/Share/packr ${HOME_PATH}/feeds/packages/devel/packr
 ./scripts/feeds update langge2
 
 cp -Rf ${HOME_PATH}/feeds.conf.default ${HOME_PATH}/LICENSES/doc/uniq.conf
