@@ -1,0 +1,13 @@
+--- a/package/kernel/linux/modules/bluetooth.mk
++++ b/package/kernel/linux/modules/bluetooth.mk
+@@ -46,8 +46,9 @@ define KernelPackage/hci-uart
+	CONFIG_BT_HCIUART_H4 \
+	CONFIG_BT_HCIUART_NOKIA=n
+  FILES:= \
++	$(LINUX_DIR)/drivers/tty/serdev/serdev.ko \
+	$(LINUX_DIR)/drivers/bluetooth/hci_uart.ko
+-  AUTOLOAD:=$(call AutoProbe,hci_uart)
++  AUTOLOAD:=$(call AutoProbe,serdev hci_uart)
+ endef
+
+ define KernelPackage/hci-uart/description
