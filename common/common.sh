@@ -72,8 +72,10 @@ fi
 
 if [[ -n "$(echo "${CPU_SELECTION}" |grep -i 'E5\|默认\|false')" ]]; then
   CPU_SELECTION="false"
+elif [[ -n "$(echo "${CPU_SELECTION}" |grep '8573')" ]]; then
+  CPU_SELECTION="8573"
 elif [[ -n "$(echo "${CPU_SELECTION}" |grep '7763')" ]]; then
-  CPU_SELECTION="7763" 
+  CPU_SELECTION="7763"
 elif [[ -n "$(echo "${CPU_SELECTION}" |grep '8370')" ]]; then
   CPU_SELECTION="8370"
 elif [[ -n "$(echo "${CPU_SELECTION}" |grep '8272')" ]]; then
@@ -2010,7 +2012,7 @@ false)
     export Continue_selecting="0"
   fi
 ;;
-7763|8370|8272|8171)
+8573|7763|8370|8272|8171)
   if [[ `echo "${cpu_model}" |grep -ic "${CPU_SELECTION}"` -eq '0' ]]; then
     export chonglaixx="非${CPU_SELECTION}-重新编译"
     export chonglaiss="并非是您选择的${CPU_SELECTION}CPU"

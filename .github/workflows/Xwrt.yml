@@ -30,12 +30,14 @@ on:
           - 'aarch64'
           - 'x86_64'
       CPU_SELECTION:
-        description: 'CPU优选,增加编译速度'
+        description: 'CPU优选,增加编译速度(8573C=第五代至强,ubuntu-24.04机型池最新最快)'
         required: true
-        default: '默认'
+        default: '8573C'
         type: choice
         options:
+          - '8573C'
           - '默认'
+          - '7763'
           - '8370C'
           - '8272CL'
           - '8171M'
@@ -45,7 +47,7 @@ on:
         default: '关闭'
         type: choice
         options:
-          - 'Telegram'
+          - '关闭'
           - 'Telegram'
           - 'Pushplus'
           - 'Wechat'

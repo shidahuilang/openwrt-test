@@ -45,11 +45,12 @@ on:
           - 'r6s'
           - 'n1'
       CPU_SELECTION:
-        description: 'CPU优选,增加编译速度'
+        description: 'CPU优选,增加编译速度(8573C=第五代至强,ubuntu-24.04机型池最新最快)'
         required: true
-        default: '默认'
+        default: '8573C'
         type: choice
         options:
+          - '8573C'
           - '默认'
           - '7763'
           - '8370C'
@@ -119,7 +120,7 @@ env:
 jobs:
   build:
     name: 启动"${{ matrix.target }}-${{ github.event.inputs.REPO_BRANCH }}"触发编译
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     if: ${{ github.event.repository.owner.id == github.event.sender.id }}
     
     env:

@@ -28,7 +28,8 @@ env:
 jobs:
   build:
     name: 编译 "${{matrix.target}}"
-    runs-on: ubuntu-22.04
+    # Lienol(19.07老分支)固定22.04老机型池;Lede/Immortalwrt/Xwrt用24.04新机型池(含8573C第五代至强)
+    runs-on: ${{ (matrix.target == 'Lienol') && 'ubuntu-22.04' || 'ubuntu-24.04' }}
     if: ${{ github.event.repository.owner.id == github.event.sender.id }}
     
     env:

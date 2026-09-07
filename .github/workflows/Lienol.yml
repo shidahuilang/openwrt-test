@@ -29,7 +29,7 @@ on:
           - 'aarch64'
           - 'x86_64'
       CPU_SELECTION:
-        description: 'CPU优选,增加编译速度'
+        description: 'CPU优选(注意:Lienol 19.07老源码固定22.04机型池,无8573C,建议默认或8370C)'
         required: true
         default: '默认'
         type: choice
@@ -44,7 +44,7 @@ on:
         default: '关闭'
         type: choice
         options:
-          - 'Telegram'
+          - '关闭'
           - 'Telegram'
           - 'Pushplus'
           - 'Wechat'
