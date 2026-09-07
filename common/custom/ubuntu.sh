@@ -10,8 +10,10 @@ fsck -f /
 sudo dpkg --configure -a
 sudo apt-get install -f
 sudo bash -c 'bash <(curl -s https://build-scripts.immortalwrt.eu.org/init_build_environment.sh)'
-sudo apt-get install -y rename pigz libfuse-dev upx subversion clang libpcre libpcre-dev
-sudo apt-get install -y $(curl -fsSL https://is.gd/depend_ubuntu2204_openwrt)
+# libpcre3/libpcre3-dev 在 22.04 与 24.04 均存在(libpcre/libpcre-dev 为旧名,24.04已无)
+sudo apt-get install -y rename pigz libfuse-dev upx subversion clang libpcre3 libpcre3-dev || true
+# lean 依赖短链(is.gd)已失效且curl -f静默返回空,保留尝试但不阻断;ImmortalWrt官方脚本已装核心依赖
+sudo apt-get install -y $(curl -fsSL https://is.gd/depend_ubuntu2404_openwrt) $(curl -fsSL https://is.gd/depend_ubuntu2204_openwrt) || echo "lean依赖短链不可用,跳过(核心依赖已由ImmortalWrt脚本安装)"
 }
 
 function update_apt_source(){
