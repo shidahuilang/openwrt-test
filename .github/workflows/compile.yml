@@ -175,7 +175,7 @@ jobs:
         
     - name: 缓存加速
       if: env.CACHEWRTBUILD_SWITCH == 'true'
-      uses: stupidloud/cachewrtbuild@v1.9.0
+      uses: stupidloud/cachewrtbuild@main
       with:
         ccache: 'false'
         mixkey: "${{ env.TARGET_PROFILE }}"
