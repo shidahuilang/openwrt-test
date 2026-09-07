@@ -4,9 +4,9 @@
    SUBMENU:=$(SOUND_MENU)
    TITLE:= HD Audio Realtek Codec
    KCONFIG:= \
--  CONFIG_SND_HDA_CODEC_REALTEK
-+  CONFIG_SND_HDA_CODEC_REALTEK \
-+  CONFIG_SND_HDA_CODEC_REALTEK_LIB@ge6.18
+-	CONFIG_SND_HDA_CODEC_REALTEK
++	CONFIG_SND_HDA_CODEC_REALTEK \
++	CONFIG_SND_HDA_CODEC_REALTEK_LIB@ge6.18
    FILES:= \
-   $(LINUX_DIR)/sound/pci/hda/snd-hda-codec-realtek.ko@lt6.18 \
-   $(LINUX_DIR)/sound/hda/codecs/realtek/snd-hda-codec-realtek-lib.ko@ge6.18
+ 	$(LINUX_DIR)/sound/pci/hda/snd-hda-codec-realtek.ko@lt6.18 \
+ 	$(LINUX_DIR)/sound/hda/codecs/realtek/snd-hda-codec-realtek-lib.ko@ge6.18
