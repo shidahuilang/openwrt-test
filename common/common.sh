@@ -611,7 +611,8 @@ XWRT|OFFICIAL)
 ;;
 esac
 
-source ${HOME_PATH}/build/common/Share/19.07/netsupport.sh
+# 老源码(19.07)兼容:为缺少 kmod-netlink-diag/kmod-inet-diag 定义的旧版源码树补内核包定义
+[[ -f "${HOME_PATH}/build/common/Share/19.07/netsupport.sh" ]] && source ${HOME_PATH}/build/common/Share/19.07/netsupport.sh
 
 [[ -d "${HOME_PATH}/build/common/Share/luci-app-samba4" ]] && rm -rf ${HOME_PATH}/build/common/Share/luci-app-samba4
 amba4="$(find . -type d -name 'luci-app-samba4')"
