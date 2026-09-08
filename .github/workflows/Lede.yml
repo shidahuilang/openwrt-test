@@ -161,7 +161,6 @@ jobs:
         export INPUTS_CACHEWRTBUILD_SWITCH="${{ github.event.inputs.CACHEWRTBUILD_SWITCH }}"
         export INPUTS_UPDATE_FIRMWARE_ONLINE="${{ github.event.inputs.UPDATE_FIRMWARE_ONLINE }}"
         export INPUTS_COMPILATION_INFORMATION="${{ github.event.inputs.COMPILATION_INFORMATION }}"
-        export INPUTS_PACKAGING_FIRMWARE="${{ github.event.inputs.PACKAGING_FIRMWARE }}"
         source build/${{ env.FOLDER_NAME }}/common.sh && Diy_menu1
 
     - name: 部署编译环境
@@ -296,19 +295,19 @@ jobs:
         source ${BUILD_PATH}/common.sh && build_openwrt
         
     - name: Telegram或pushplus信息通知
-      if: env.PUSH_PLUS_TOKEN && env.INFORMATION_NOTICE == 'PUSH' || env.TELEGRAM_BOT_TOKEN && env.INFORMATION_NOTICE == 'TG'
+      if: env.PUSH_PLUS_TOKEN && env.INFORMATION_NOTICE == 'Pushplus' || env.TELEGRAM_BOT_TOKEN && env.INFORMATION_NOTICE == 'Telegram'
       run: |
-        if [[ "${{ env.INFORMATION_NOTICE }}" == "TG" ]]; then
+        if [[ "${{ env.INFORMATION_NOTICE }}" == "Telegram" ]]; then
           if [[ "${{steps.gitpush.outcome}}" == 'success' ]]; then
             curl -k --data chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" --data "text=🎉 主人💕：您的编译脚本成功触发【${{matrix.target}}】文件夹编译【${REPO_BRANCH}分支的${{env.TARGET_PROFILE}}】固件中,请耐心等待...... 😋(${{env.WAREHOUSE_MAN}}仓库的#${{env.RUN_NUMBER}}号)！($(date +%Y年%m月%d号%H时%M分))💐" "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage"
           fi
         fi
-        if [[ "${{ env.INFORMATION_NOTICE }}" == "PUSH" ]]; then
+        if [[ "${{ env.INFORMATION_NOTICE }}" == "Pushplus" ]]; then
           if [[ "${{steps.gitpush.outcome}}" == 'success' ]]; then
             curl -k --data token="${{ secrets.PUSH_PLUS_TOKEN }}" --data title="开始编译【${{matrix.target}}】" --data "content=🎉 主人💕：您的编译脚本成功触发【${{matrix.target}}】文件夹编译【${REPO_BRANCH}分支的${{env.TARGET_PROFILE}}】固件中,请耐心等待...... 😋(${{env.WAREHOUSE_MAN}}仓库的#${{env.RUN_NUMBER}}号)！($(date +%Y年%m月%d号%H时%M分))💐" "http://www.pushplus.plus/send"
           fi
         fi
-        if [[ "${{ env.INFORMATION_NOTICE }}" == "WX" ]]; then
+        if [[ "${{ env.INFORMATION_NOTICE }}" == "Wechat" ]]; then
           if [[ "${{steps.gitpush.outcome}}" == 'success' ]] && [[ "${{steps.compile.outcome}}" == 'success' ]]; then
             curl -k --data token="${{ secrets.WX_TOKEN }}" --data title="开始编译【${{ env.FOLDER_NAME }}】" --data "message=🎉 主人💕：您的编译脚本成功触发【${{ env.FOLDER_NAME }}】文件夹编译【${{env.TARGET_PROFILE}}】固件中,请耐心等待...... 😋(${{env.Tongzhi_Date}})" "http://${{ secrets.CURL }}/push?token=${{ secrets.WX_TOKEN }}&"
           else

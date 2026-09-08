@@ -382,9 +382,9 @@ jobs:
         body: ${{ env.Tongzhi_Date }}
 
     - name: Telegram或pushplus信息通知
-      if: env.PUSH_PLUS_TOKEN && env.INFORMATION_NOTICE == 'PUSH' || env.TELEGRAM_BOT_TOKEN && env.INFORMATION_NOTICE == 'TG' || env.WX_TOKEN && env.INFORMATION_NOTICE == 'WX'
+      if: env.PUSH_PLUS_TOKEN && env.INFORMATION_NOTICE == 'Pushplus' || env.TELEGRAM_BOT_TOKEN && env.INFORMATION_NOTICE == 'Telegram' || env.WX_TOKEN && env.INFORMATION_NOTICE == 'Wechat'
       run: |
-       if [[ "${{ env.INFORMATION_NOTICE }}" == "TG" ]]; then
+       if [[ "${{ env.INFORMATION_NOTICE }}" == "Telegram" ]]; then
        if [[ "${{steps.compile.outcome}}" == 'success' ]]; then
         curl -k --data chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
              --data text="🎉 主人您的${{ env.TARGET_PROFILE }}固件成功编译完成了！
@@ -402,7 +402,7 @@ jobs:
        fi
        fi
 
-       if [[ "${{ env.INFORMATION_NOTICE }}" == "PUSH" ]]; then
+       if [[ "${{ env.INFORMATION_NOTICE }}" == "Pushplus" ]]; then
        if [[ "${{steps.compile.outcome}}" == 'success' ]]; then
         curl -k --data token="${{ secrets.PUSH_PLUS_TOKEN }}" \
              --data title="[${{ env.SOURCE }}-${{ env.TARGET_PROFILE }}]编译成功" \
@@ -421,7 +421,7 @@ jobs:
         fi
         fi
 
-       if [[ "${{ env.INFORMATION_NOTICE }}" == "WX" ]]; then
+       if [[ "${{ env.INFORMATION_NOTICE }}" == "Wechat" ]]; then
        if [[ "${{steps.gitpush.outcome}}" == 'success' ]] && [[ "${{steps.compile.outcome}}" == 'success' ]]; then
         curl -k --data token="${{ secrets.WX_TOKEN }}" \
              --data title="编译成功" \
