@@ -2009,7 +2009,7 @@ chmod -R +x ${start_path} && source ${start_path}
 case "${CPU_SELECTION}" in
 false)
   if [[ `echo "${cpu_model}" |grep -ic "E5"` -eq '1' ]]; then
-    export chonglaixx="E5-重新编译"
+    export chonglaixx="E5-重新编译(实际:${cpu_model})"
     export chonglaiss="是E5的CPU"
     export Continue_selecting="1"
   else
@@ -2019,12 +2019,24 @@ false)
 ;;
 8573|7763|8370|8272|8171)
   if [[ `echo "${cpu_model}" |grep -ic "${CPU_SELECTION}"` -eq '0' ]]; then
-    export chonglaixx="非${CPU_SELECTION}-重新编译"
+    export chonglaixx="非${CPU_SELECTION}-重新编译(实际:${cpu_model})"
     export chonglaiss="并非是您选择的${CPU_SELECTION}CPU"
     export Continue_selecting="1"
   else
     TIME g " 恭喜,正是您想要的${CPU_SELECTION}CPU"
     export Continue_selecting="0"
+    # CPU检测通过,如果有残留的RETRY_COUNT(来自之前的重编译),push一个修正commit
+    if [[ -f "build/${FOLDER_NAME}/relevance/run_number" ]] && grep -q "RETRY_COUNT" build/${FOLDER_NAME}/relevance/run_number; then
+      cd ${GITHUB_WORKSPACE}
+      RETRY_CURRENT="$(grep "RETRY_COUNT" build/${FOLDER_NAME}/relevance/run_number |cut -d"=" -f2)"
+      if [[ -n "$RETRY_CURRENT" && "$RETRY_CURRENT" != "0" ]]; then
+        # 清除重试计数,修正标题
+        sed -i '/RETRY_COUNT/d' build/${FOLDER_NAME}/relevance/run_number
+        git add build/${FOLDER_NAME}/relevance/run_number
+        git commit -m "使用${CPU_SELECTION}-编译-${FOLDER_NAME}-${TARGET_PROFILE}固件(实际:${cpu_model})" || true
+        git push --force "https://${REPO_TOKEN}@github.com/${GIT_REPOSITORY}" HEAD:$(git rev-parse --abbrev-ref HEAD) 2>/dev/null || true
+      fi
+    fi
   fi
 ;;
 *)
@@ -2034,6 +2046,20 @@ false)
 esac
 
 if [[ "${Continue_selecting}" == "1" ]]; then
+  # 检查最大重试次数,防止无限循环(同一仓库 main 分支可能有其他 push 导致竞态)
+  RETRY_COUNT=0
+  if [[ -f "build/${FOLDER_NAME}/relevance/run_number" ]]; then
+    RETRY_COUNT="$(grep "RETRY_COUNT" build/${FOLDER_NAME}/relevance/run_number |cut -d"=" -f2)"
+    [[ -z "$RETRY_COUNT" ]] && RETRY_COUNT=0
+  fi
+  RETRY_COUNT=$((RETRY_COUNT + 1))
+  MAX_RETRY=10
+  if [[ "$RETRY_COUNT" -gt "$MAX_RETRY" ]]; then
+    TIME r "CPU重试次数已达${MAX_RETRY}次,放弃编译!当前CPU:${cpu_model}"
+    exit 1
+  fi
+  TIME y "CPU筛选第${RETRY_COUNT}/${MAX_RETRY}次重试,目标CPU:${CPU_SELECTION},当前:${cpu_model}"
+
   cd ${GITHUB_WORKSPACE}
   git clone https://github.com/${GIT_REPOSITORY}.git UPLOADCPU
   mkdir -p "UPLOADCPU/build/${FOLDER_NAME}/relevance"
@@ -2046,6 +2072,7 @@ if [[ "${Continue_selecting}" == "1" ]]; then
   echo "${SOURCE}-${REPO_BRANCH}-${CONFIG_FILE}-$(date +%Y年%m月%d号%H时%M分%S秒)" > UPLOADCPU/build/${FOLDER_NAME}/relevance/start
   echo "DEVICE_NUMBER=${RUN_NUMBER}" > UPLOADCPU/build/${FOLDER_NAME}/relevance/run_number
   echo "chonglaiss=${chonglaiss}" >> UPLOADCPU/build/${FOLDER_NAME}/relevance/run_number
+  echo "RETRY_COUNT=${RETRY_COUNT}" >> UPLOADCPU/build/${FOLDER_NAME}/relevance/run_number
   
   cd UPLOADCPU
   BRANCH_HEAD="$(git rev-parse --abbrev-ref HEAD)"
