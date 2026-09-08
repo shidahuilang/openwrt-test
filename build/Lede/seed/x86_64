@@ -1,9 +1,11 @@
 CONFIG_TARGET_x86=y
 CONFIG_TARGET_x86_64=y
 CONFIG_TARGET_x86_64_DEVICE_generic=y
-CONFIG_ALL=y
-CONFIG_ALL_KMODS=y
-CONFIG_ALL_NONSHARED=y
+# 关闭全量编译:避免内核版本升级(如 6.18)时全量拉取坏包(ntfs/snd-hda 等)导致连锁失败
+# 只编译下方显式选中的 kmod,固件功能不受影响(seed 已手选所需包)
+# CONFIG_ALL is not set
+# CONFIG_ALL_KMODS is not set
+# CONFIG_ALL_NONSHARED is not set
 CONFIG_GRUB_IMAGES=y
 CONFIG_IB=y
 CONFIG_IB_STANDALONE=y
