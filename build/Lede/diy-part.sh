@@ -117,3 +117,36 @@ EOF
 # 在线更新时，删除不想保留固件的某个文件，在EOF跟EOF之间加入删除代码，记住这里对应的是固件的文件路径，比如： rm -rf /etc/config/luci
 cat >>$DELETE <<-EOF
 EOF
+
+# ============================================================
+# 内核 6.18 坏包黑名单:批量给不兼容包加 @!LINUX_6_18 跳过
+# ------------------------------------------------------------
+# 背景:内核 6.18 重构了 ntfs、snd-hda 等模块路径,CONFIG_ALL 全量编译会命中坏包导致连锁失败
+# 此脚本在 make defconfig 前批量修改 Makefile,避免逐个打 patch("修一个暴露下一个")
+# 新增坏包直接 append BLACKLIST 清单即可
+# 注意:Lede 默认 6.12 LTS 时此条件不触发(@!LINUX_6_18 只在 6.18 生效),安全无副作用
+# ============================================================
+BLACKLIST="fs-ntfs sound-hda-core snd-hda-scodec-component sound-hda-codec-realtek sound-hda-codec-cmedia sound-hda-codec-analog sound-hda-codec-idt sound-hda-codec-si3054 sound-hda-codec-cirrus sound-hda-codec-ca0110"
+for pkg in $BLACKLIST; do
+  # 定位含该包定义的 .mk 文件(匹配 define KernelPackage/<pkg> 行)
+  mk=$(grep -rl "^define KernelPackage/${pkg}\$" package/kernel/linux/modules/ 2>/dev/null | head -1)
+  [ -z "$mk" ] && { echo "[黑名单] $pkg 未找到 Makefile,跳过"; continue; }
+  # 已有 @!LINUX_6_18 则跳过,避免重复添加
+  if grep -q "@!LINUX_6_18" "$mk"; then
+    echo "[黑名单] $pkg 已有 @!LINUX_6_18,跳过"
+    continue
+  fi
+  # 在该包定义块内的第一个 DEPENDS+= 行末尾追加 +@!LINUX_6_18
+  # 边界精确匹配防止 fs-ntfs 误改 fs-ntfs3
+  awk -v pkg="$pkg" -v done=0 '
+    /^define KernelPackage\// { cur=$0; next }
+    cur == ("define KernelPackage/"pkg) && /^  DEPENDS\+=/ && !done {
+      sub(/[[:space:]]*$/, "", $0)
+      print $0 " +@!LINUX_6_18"
+      done=1
+      next
+    }
+    { print }
+  ' "$mk" > "$mk.tmp" && mv "$mk.tmp" "$mk"
+  echo "[黑名单] $pkg 已加 @!LINUX_6_18 (在 $mk)"
+done
